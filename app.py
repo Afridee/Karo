@@ -93,9 +93,7 @@ async def on_chat_start() -> None:
     settings = await cl.ChatSettings(
         [
             cl.input_widget.Switch(
-                id="show_debug",
-                label="Show debug / raw response",
-                initial=False,
+                id="show_debug", label="Show debug / raw response", initial=False,
             ),
         ]
     ).send()
@@ -112,12 +110,14 @@ async def on_settings_update(settings: dict) -> None:
 # ---------------------------------------------------------------------------
 
 # Silence detection tunables
-_SILENCE_THRESHOLD_RMS = 300   # Int16 RMS below this = silence (~1% of ±32768)
-_SILENCE_TIMEOUT_MS    = 1500  # ms of continuous silence → trigger processing
-_MIN_SPEECH_MS         = 400   # ignore utterances shorter than this (clicks/noise)
+_SILENCE_THRESHOLD_RMS = 300  # Int16 RMS below this = silence (~1% of ±32768)
+_SILENCE_TIMEOUT_MS = 1500  # ms of continuous silence → trigger processing
+_MIN_SPEECH_MS = 400  # ignore utterances shorter than this (clicks/noise)
 
 
-def _pcm_to_wav(pcm_bytes: bytes, sample_rate: int, channels: int = 1, sampwidth: int = 2) -> bytes:
+def _pcm_to_wav(
+    pcm_bytes: bytes, sample_rate: int, channels: int = 1, sampwidth: int = 2
+) -> bytes:
     """Wrap raw Int16 PCM bytes in a WAV container."""
     buf = io.BytesIO()
     with wave.open(buf, "wb") as wf:
@@ -136,18 +136,21 @@ def _rms_int16(data: bytes) -> float:
 
 def _audio_sample_rate() -> int:
     from chainlit import config as cl_config
-    return getattr(getattr(cl_config.config.features, "audio", None), "sample_rate", 24000)
+
+    return getattr(
+        getattr(cl_config.config.features, "audio", None), "sample_rate", 24000
+    )
 
 
 # Magic-byte signatures for encoded container formats
 _CONTAINER_MAGIC = {
-    b"\x1a\x45\xdf\xa3": ".webm",    # EBML / WebM / MKV
-    b"OggS":              ".ogg",     # Ogg
-    b"\x00\x00\x00\x20ftyp": ".mp4", # MP4 (common variant)
+    b"\x1a\x45\xdf\xa3": ".webm",  # EBML / WebM / MKV
+    b"OggS": ".ogg",  # Ogg
+    b"\x00\x00\x00\x20ftyp": ".mp4",  # MP4 (common variant)
     b"\x00\x00\x00\x18ftyp": ".mp4",
-    b"RIFF":              ".wav",     # WAV (already has header)
-    b"ID3":               ".mp3",     # MP3 with ID3 tag
-    b"\xff\xfb":          ".mp3",     # MP3 without ID3
+    b"RIFF": ".wav",  # WAV (already has header)
+    b"ID3": ".mp3",  # MP3 with ID3 tag
+    b"\xff\xfb": ".mp3",  # MP3 without ID3
 }
 
 
@@ -171,12 +174,19 @@ async def _transcribe_and_respond(raw: bytes, mime: str) -> None:
 
             if suffix:
                 audio_bytes = raw
-                logger.info("Audio: container %s (%d bytes, mimeType=%r)", suffix, len(raw), mime)
+                logger.info(
+                    "Audio: container %s (%d bytes, mimeType=%r)",
+                    suffix,
+                    len(raw),
+                    mime,
+                )
             else:
                 sr = _audio_sample_rate()
                 audio_bytes = _pcm_to_wav(raw, sample_rate=sr)
                 suffix = ".wav"
-                logger.info("Audio: PCM→WAV %d Hz (%d bytes, mimeType=%r)", sr, len(raw), mime)
+                logger.info(
+                    "Audio: PCM→WAV %d Hz (%d bytes, mimeType=%r)", sr, len(raw), mime
+                )
 
             with tempfile.NamedTemporaryFile(suffix=suffix, delete=False) as tmp:
                 tmp.write(audio_bytes)
@@ -196,7 +206,7 @@ async def _transcribe_and_respond(raw: bytes, mime: str) -> None:
             ).send()
             return
 
-        await cl.Message(content=prompt, author="You").send()
+        await cl.Message(content=prompt, author="You", type="user_message").send()
         await _handle_question(prompt)
 
     except Exception:
@@ -388,6 +398,5 @@ async def _handle_question(question: str) -> None:
             )
 
         await cl.Message(
-            content="🔍 **Debug info** (expand below)",
-            elements=debug_elements,
+            content="🔍 **Debug info** (expand below)", elements=debug_elements,
         ).send()
