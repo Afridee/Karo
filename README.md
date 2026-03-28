@@ -49,7 +49,7 @@ backend/
 ### Data Flow
 
 ```
-User Question (Streamlit chat)
+User Question (Chainlit chat)
           │
           ▼
 ┌─────────────────────────────────────────────────────┐
@@ -188,7 +188,8 @@ All subsequent commands (`uv run python ...`) automatically use the project's vi
 | `langchain-postgres`                         | pgvector vector store                         |
 | `langgraph`, `langgraph-checkpoint-postgres` | Agent graph + persistent conversation history |
 | `psycopg[binary]`, `psycopg2-binary`         | PostgreSQL drivers                            |
-| `streamlit`                                  | Web chat UI                                   |
+| `chainlit`                                   | Web chat UI (text + optional voice)           |
+| `faster-whisper`                             | Server-side speech-to-text for voice input    |
 | `python-dotenv`                              | `.env` loading                                |
 
 ---
@@ -313,15 +314,17 @@ QMR KNOWLEDGE (.TXT) TO VECTOR INGESTION
 
 ## **11. RUN THE APP**
 
-### Streamlit (recommended)
+### Chainlit (recommended)
 
 ```bash
-uv run streamlit run streamlit_app.py
+uv run chainlit run app.py
 ```
 
-Open http://localhost:8501 in your browser.
+Open http://localhost:8000 in your browser (Chainlit prints the exact URL in the terminal if it differs).
 
-The **Report Assistant** sidebar shows a toggle for debug output (raw agent response + retrieved knowledge chunks) and displays the current state of required environment variables.
+The UI supports **text chat** and **voice**: use the microphone control to speak; audio is transcribed on the server with faster-whisper, then sent to the agent like a typed message.
+
+Open the **chat settings** panel (Chainlit’s settings control for the thread) and enable **Show debug / raw response** to expand raw graph output and retrieved knowledge chunks after each reply.
 
 ### Programmatic usage
 
@@ -374,10 +377,10 @@ The examples below assume you have added the sample "My Report API" chunks from 
 
 ### Debug mode
 
-Enable **Show debug / raw response** in the sidebar to inspect:
+In **chat settings**, enable **Show debug / raw response** to inspect:
 
 - Which knowledge chunks the agent retrieved
-- The raw API response before formatting
+- The raw graph output (including tool results) before formatting
 
 ---
 
@@ -432,7 +435,7 @@ The agent only knows what is in `knowledge_chunks.txt`. Add the missing endpoint
 uv run python ingest.py
 ```
 
-Enable **Show debug / raw response** in the Streamlit sidebar to see which chunks were (or weren't) retrieved for a query.
+Enable **Show debug / raw response** in Chainlit’s chat settings to see which chunks were (or weren't) retrieved for a query.
 
 ### Agent calls the wrong endpoint or uses wrong parameters
 
@@ -484,4 +487,4 @@ sed -i '' '/postgresql@15/d' ~/.zshrc && source ~/.zshrc
 
 ---
 
-**Questions?** Review the troubleshooting section or ask the agent directly via `streamlit_app.py`. To add new APIs, see `instructions.md`.
+**Questions?** Review the troubleshooting section or ask the agent directly via `app.py` (Chainlit). To add new APIs, see `instructions.md`.
