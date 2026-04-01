@@ -1,5 +1,7 @@
 # Karo
 
+![Query your company's live data with Karo — answers in plain English. No SQL. No Postman. No tickets to engineering.](karo-hero.png)
+
 An AI agent that ingests your company's internal knowledge — API docs, business rules, operational procedures — and lets anyone on the team query live data and get answers in plain English. No SQL. No Postman. No tickets to engineering.
 
 **Video walkthrough:** [Karo — Building an AI Agent That Knows Your Company](https://youtube.com/playlist?list=PLQJcnbfcEQTTFeGbseG-k2VfKO4GEaHo1)
