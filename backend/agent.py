@@ -1,46 +1,46 @@
 """
 API AGENT — Public entry points.
 
-Exposes get_agent() and ask_agent() used by the Streamlit app.
+Exposes get_agent() and ask_agent() used by the Chainlit app.
 """
 
 from typing import Any, Dict, List, Optional
 
 from langchain_core.messages import ToolMessage
 from langgraph.checkpoint.base import BaseCheckpointSaver
-from langgraph.checkpoint.postgres import PostgresSaver
+from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
 
 import backend.config as _cfg
 from backend.graph import graph_builder
 from backend.helpers import serialize_docs
 
 
-def get_agent():
+async def get_agent():
     """
-    Streamlit-safe singleton:
-    - keeps the PostgresSaver context open for the lifetime of the process
-    - compiles the LangGraph once with the checkpointer
+    Async singleton:
+    - keeps the AsyncPostgresSaver context open for the lifetime of the process
+    - compiles the LangGraph once with the async checkpointer
     """
     if _cfg.agent_instance is not None:
         return _cfg.agent_instance
 
-    _cfg.checkpointer_cm = PostgresSaver.from_conn_string(_cfg.CHECKPOINT_DB_URL)
-    _cfg.checkpointer = _cfg.checkpointer_cm.__enter__()
+    _cfg.checkpointer_cm = AsyncPostgresSaver.from_conn_string(_cfg.CHECKPOINT_DB_URL)
+    _cfg.checkpointer = await _cfg.checkpointer_cm.__aenter__()
 
     if not isinstance(_cfg.checkpointer, BaseCheckpointSaver):
         raise TypeError(f"Expected BaseCheckpointSaver, got {type(_cfg.checkpointer)}")
 
-    _cfg.checkpointer.setup()
+    await _cfg.checkpointer.setup()
 
     _cfg.agent_instance = graph_builder.compile(checkpointer=_cfg.checkpointer)
     return _cfg.agent_instance
 
 
-def ask_agent(
+async def ask_agent(
     question: str, thread_id: str, auth_tokens: Optional[Dict[str, str]] = None,
 ) -> Dict[str, Any]:
     """
-    Public entry point called by the Streamlit app (and tests).
+    Public entry point for the Chainlit app (and tests).
 
     Args:
         question:    The user's message.
@@ -58,11 +58,11 @@ def ask_agent(
             "raw": ...
         }
     """
-    agent = get_agent()
+    agent = await get_agent()
 
     ctx_token = _cfg.auth_tokens.set(auth_tokens or {})
     try:
-        result = agent.invoke(
+        result = await agent.ainvoke(
             {"messages": [{"role": "user", "content": question}]},
             config={"configurable": {"thread_id": thread_id}},
         )

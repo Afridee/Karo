@@ -5,6 +5,8 @@ description = "AI agent that ingests internal knowledge and lets anyone query li
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
+    "chainlit>=2.3.0",
+    "faster-whisper>=1.1.0",
     "langchain>=1.2.9",
     "langchain-community>=0.4.1",
     "langchain-openai>=1.1.8",
@@ -16,5 +18,4 @@ dependencies = [
     "psycopg[binary]>=3.3.2",
     "python-dotenv>=1.2.1",
     "sqlalchemy>=2.0.46",
-    "streamlit>=1.54.0",
 ]
