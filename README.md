@@ -23,7 +23,7 @@ An AI agent that ingests your company's internal knowledge — API docs, busines
 8. [Environment Variables](#8-environment-variables)
 9. [Add API Knowledge](#9-add-api-knowledge)
 10. [Run Ingestion](#10-run-ingestion)
-11. [Run the App](#11-run-the-app)
+11. [Run the App](#11-run-the-app) (includes [eval harness](#eval-harness-regression-checks))
 12. [Usage Examples](#12-usage-examples)
 13. [Troubleshooting](#13-troubleshooting)
 14. [Cleanup](#14-cleanup)
@@ -354,6 +354,22 @@ print(result["answer"])
 ```
 
 Each call is tied to a `thread_id` — LangGraph persists conversation history in PostgreSQL so the agent remembers context across turns.
+
+### Eval harness (regression checks)
+
+After you change prompts, tools, or `knowledge_chunks.txt` (and re-ingest), run the eval suite so retrieval and agent behaviour stay aligned with expectations.
+
+- **Cases:** `eval/cases.yaml` — retrieval queries (deterministic pgvector search) plus a few full agent turns (uses the LLM; costs tokens).
+- **Pytest** (recommended): install dev deps, then run everything except optional live-API tests:
+
+```bash
+uv sync --group dev
+uv run pytest tests/test_agent_eval.py -v -m "not integration"
+```
+
+- **CLI** (no pytest): `uv run python eval/run_eval.py` — add `--retrieval-only` to skip agent cases. To run the live API check: set `API_TOKEN`, export `KARO_EVAL_API=1`, and pass `--integration`.
+
+**Note:** Pytest uses a **session-scoped asyncio loop** (see `pyproject.toml`) so the LangGraph `AsyncPostgresSaver` connection matches the process-wide agent singleton across async tests.
 
 ---
 

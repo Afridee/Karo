@@ -1,0 +1,163 @@
+# Karo eval cases — run after knowledge or agent changes.
+# Retrieval cases: deterministic (vector similarity only, no LLM).
+# Agent cases: end-to-end (costs tokens); assert tool artifacts + answer hints.
+
+retrieval_cases:
+  - id: enrolment_departments
+    query: "How do I list enrolment departments in Elements360?"
+    expect:
+      min_docs: 1
+      any_doc_contains:
+        - "/api/e360/enrolment/departments"
+
+  - id: get_all_enrolments
+    query: "Fetch all staff enrolments endpoint"
+    expect:
+      min_docs: 1
+      any_doc_contains:
+        - "/api/e360/enrolment/getAllEnrolments"
+
+  - id: get_all_enrolments_pagination_default
+    query: "getAllEnrolments extraction script default page size first call"
+    expect:
+      min_docs: 1
+      any_doc_contains:
+        - "limit=20"
+
+  - id: enrolment_staffs
+    query: "API for all enrolment staffs"
+    expect:
+      min_docs: 1
+      any_doc_contains:
+        - "/api/e360/enrolment/staffs"
+
+  - id: staffs_by_department
+    query: "Get enrolment staffs filtered by department id"
+    expect:
+      min_docs: 1
+      any_doc_contains:
+        - "staffsByDepartment"
+
+  - id: clocking_sites
+    query: "clocking sites list API"
+    expect:
+      min_docs: 1
+      any_doc_contains:
+        - "/api/clocking/sites"
+
+  - id: clocking_paginated
+    query: "paginated clocking records by staff"
+    expect:
+      min_docs: 1
+      any_doc_contains:
+        - "/api/clocking/record/paginated"
+
+  - id: clocking_status
+    query: "check clocking status for a staff member"
+    expect:
+      min_docs: 1
+      any_doc_contains:
+        - "checkClockingStatus"
+
+  - id: checklist_venues
+    query: "checklist venues endpoint"
+    expect:
+      min_docs: 1
+      any_doc_contains:
+        - "/api/e360/checklist/venues"
+
+  - id: checklist_types
+    query: "all checklist types"
+    expect:
+      min_docs: 1
+      any_doc_contains:
+        - "/api/e360/checklist/type/all"
+
+  - id: checklist_record
+    query: "checklist record by date type and venue"
+    expect:
+      min_docs: 1
+      any_doc_contains:
+        - "/api/e360/checklist/record"
+
+  - id: templog_record
+    query: "TempLog record API date and venue"
+    expect:
+      min_docs: 1
+      any_doc_contains:
+        - "/api/e360/templog/record"
+
+  - id: audit_types
+    query: "list all audit types"
+    expect:
+      min_docs: 1
+      any_doc_contains:
+        - "/api/e360/audit/auditType/all"
+
+  - id: training_subject
+    query: "training subject by station and training type"
+    expect:
+      min_docs: 1
+      any_doc_contains:
+        - "trainingSubject"
+
+  - id: breakage_report
+    query: "breakage report by venue and date"
+    expect:
+      min_docs: 1
+      any_doc_contains:
+        - "/api/breakageReport/reportByVenueAndDate"
+
+agent_cases:
+  - id: agent_enrolment_departments_path
+    question: >-
+      Using only the knowledge base: what is the relative URL path (starting with /api)
+      for the GET endpoint that lists enrolment departments?
+    thread_id: eval-thread-enrolment-dept-path
+    expect:
+      min_semantic_docs: 1
+      answer_contains:
+        - "enrolment/departments"
+
+  - id: agent_pagination_policy
+    question: >-
+      According to our API knowledge, when handling getAllEnrolments list results,
+      what default page size should extraction use on the first call?
+    thread_id: eval-thread-pagination
+    expect:
+      # Model may answer from context without a separate semantic_search call.
+      min_semantic_docs: 0
+      answer_contains:
+        - "20"
+
+  - id: agent_clocking_sites_method
+    question: >-
+      What HTTP method does the clocking sites API use, and what is its path after the base URL?
+    thread_id: eval-thread-clocking-sites
+    expect:
+      min_semantic_docs: 1
+      answer_contains:
+        - "GET"
+        - "/api/clocking/sites"
+
+  - id: agent_checklist_record_params
+    question: >-
+      Which query parameters are required for the checklist record endpoint?
+    thread_id: eval-thread-checklist-record
+    expect:
+      min_semantic_docs: 1
+      answer_contains:
+        - "date"
+        - "typeId"
+        - "venueId"
+
+# Optional: requires API_TOKEN and live backend; skipped when KARO_EVAL_API=0 or token missing.
+integration_cases:
+  - id: integration_departments_live
+    question: >-
+      Call the enrolment departments API and summarize: how many departments are returned
+      and list their names.
+    thread_id: eval-thread-live-departments
+    expect:
+      min_api_responses: 1
+      min_semantic_docs: 0
