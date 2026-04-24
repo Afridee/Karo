@@ -6,8 +6,26 @@ An AI agent that ingests your company's internal knowledge — API docs, busines
 
 **Video walkthrough:** [Karo — Building an AI Agent That Knows Your Company](https://youtube.com/playlist?list=PLQJcnbfcEQTTFeGbseG-k2VfKO4GEaHo1)
 
-**System:** macOS (Intel or Apple Silicon) with Homebrew
 **Purpose:** Hybrid API-calling + RAG agent that retrieves context from a pgvector knowledge base and calls external REST APIs to generate reports and answer questions.
+
+## **TWO WAYS TO RUN**
+
+1. **Docker (recommended for “just run it”)** — one command starts the Chainlit app and a Postgres+pgvector container together. Works on any OS that runs Docker. Jump to the **[Docker Quick Start](#quick-start-docker)** below; you can **skip sections 3–7** (they are for the native macOS setup).
+2. **Native (macOS)** — install PostgreSQL, pgvector, Python 3.12, and `uv` on your machine and run the app directly. Follow sections **2–11** in order.
+
+## **QUICK START (DOCKER)**
+
+Prerequisite: [Docker Desktop](https://www.docker.com/get-started) (or Docker Engine + Compose plugin).
+
+```bash
+git clone <repo-url> && cd Karo
+cp .env.example .env      # then fill in OPENAI_API_KEY, BASE_URL, API_TOKEN
+docker compose up --build
+# In another terminal, after knowledge_chunks.txt exists:
+docker compose run --rm app uv run python ingest.py
+```
+
+Open http://localhost:8000. Full details (including reset/cleanup) are in **[§11 → Docker](#docker-compose-app--postgresql)**.
 
 ---
 
@@ -15,15 +33,15 @@ An AI agent that ingests your company's internal knowledge — API docs, busines
 
 1. [Architecture Overview](#1-architecture-overview)
 2. [Prerequisites](#2-prerequisites)
-3. [Install PostgreSQL](#3-install-postgresql)
-4. [Install pgvector](#4-install-pgvector)
-5. [Configure PATH](#5-configure-path)
-6. [Create Database](#6-create-database)
-7. [Setup Python Environment](#7-setup-python-environment)
+3. [Install PostgreSQL](#3-install-postgresql) *(native only)*
+4. [Install pgvector](#4-install-pgvector) *(native only)*
+5. [Configure PATH](#5-configure-path) *(native only)*
+6. [Create Database](#6-create-database) *(native only)*
+7. [Setup Python Environment](#7-setup-python-environment) *(native only)*
 8. [Environment Variables](#8-environment-variables)
 9. [Add API Knowledge](#9-add-api-knowledge)
 10. [Run Ingestion](#10-run-ingestion)
-11. [Run the App](#11-run-the-app)
+11. [Run the App](#11-run-the-app) — **[Docker](#docker-compose-app--postgresql)** or **[Chainlit (native)](#chainlit-recommended)**
 12. [Usage Examples](#12-usage-examples)
 13. [Troubleshooting](#13-troubleshooting)
 14. [Cleanup](#14-cleanup)
@@ -84,14 +102,24 @@ User Question (Chainlit chat)
 
 ## **2. PREREQUISITES**
 
-- macOS (Intel or Apple Silicon)
-- Homebrew installed
-- Python 3.12+ installed
-- [uv](https://docs.astral.sh/uv/) installed
-- OpenAI API key (get one at https://platform.openai.com/api-keys)
-- API token for the external REST APIs the agent will call
+In both paths you will need:
 
-### Verify Prerequisites
+- An **OpenAI API key** (get one at https://platform.openai.com/api-keys)
+- A **`BASE_URL`** — the base URL of the external REST APIs the agent will call
+- An **`API_TOKEN`** for those APIs (used as `Bearer` on every request)
+
+### Path A — Docker (recommended)
+
+- [Docker Desktop](https://www.docker.com/get-started) (or Docker Engine + Compose plugin). Nothing else needs to be installed on the host — Postgres, pgvector, Python, and `uv` all run inside containers.
+
+### Path B — Native (macOS)
+
+- macOS (Intel or Apple Silicon)
+- Homebrew
+- Python 3.12+
+- [uv](https://docs.astral.sh/uv/)
+
+Verify:
 
 ```bash
 brew --version       # Homebrew 4.x+
@@ -99,7 +127,7 @@ python --version     # Python 3.12+
 uv --version         # uv 0.x+
 ```
 
-### Install uv (if not already installed)
+Install `uv` if missing:
 
 ```bash
 brew install uv
@@ -108,6 +136,8 @@ brew install uv
 ---
 
 ## **3. INSTALL POSTGRESQL**
+
+> **Native path only.** If you are running via Docker (see **[§11 → Docker](#docker-compose-app--postgresql)**), **skip sections 3–7**: Compose will start a Postgres 16 + pgvector container for you and wire the app to it.
 
 ```bash
 brew update
@@ -198,31 +228,34 @@ All subsequent commands (`uv run python ...`) automatically use the project's vi
 
 ## **8. ENVIRONMENT VARIABLES**
 
-Create a `.env` file in your project root:
+The repo ships a **`.env.example`**. Copy it and fill in real values:
 
 ```bash
-cat > .env << 'EOF'
-# OpenAI
-OPENAI_API_KEY=sk-your-actual-openai-key-here
-
-# PostgreSQL — used for pgvector embeddings and LangGraph checkpoints
-DATABASE_URL=postgresql://localhost:5432/qmrdb
-
-# (Optional) separate DB for LangGraph checkpoints — defaults to DATABASE_URL
-CHECKPOINT_DB_URL=postgresql://localhost:5432/qmrdb
-
-# pgvector collection name (must match what ingest.py wrote)
-VECTOR_COLLECTION=qmr_knowledge_chunks
-
-# Path to API knowledge chunks file
-CHUNKS_FILE=knowledge_chunks.txt
-
-# Bearer token injected automatically into every API call
-API_TOKEN=your-api-token-here
-EOF
+cp .env.example .env
 ```
 
-> **⚠️ IMPORTANT:** Replace placeholder values with your real credentials. `API_TOKEN` is injected automatically into every `api_call` — never hardcode it in knowledge chunks.
+### Required
+
+| Variable          | Purpose                                                                                   |
+| ----------------- | ----------------------------------------------------------------------------------------- |
+| `OPENAI_API_KEY`  | LLM (`gpt-4o`) and embeddings (`text-embedding-3-small`).                                 |
+| `BASE_URL`        | Base URL of the external REST APIs the agent will call (injected into the system prompt). |
+| `API_TOKEN`       | Bearer token added automatically to every API call made by the agent.                     |
+| `DATABASE_URL`    | PostgreSQL + pgvector connection string. **Native path only** — with Docker, Compose sets this for you. |
+
+### Optional
+
+| Variable             | Purpose                                                                    |
+| -------------------- | -------------------------------------------------------------------------- |
+| `CHECKPOINT_DB_URL`  | Separate DB for LangGraph checkpoints. Defaults to `DATABASE_URL`.         |
+| `VECTOR_COLLECTION`  | pgvector collection name. Defaults to `qmr_knowledge_chunks`.              |
+| `CHUNKS_FILE`        | Path to the knowledge chunks file for ingestion. Defaults to `knowledge_chunks.txt`. |
+| `LANGSMITH_TRACING`, `LANGSMITH_API_KEY`, `LANGSMITH_PROJECT`, `LANGSMITH_ENDPOINT` | LangSmith tracing. Leave unset to disable. |
+| `ANTHROPIC_API_KEY`  | Not used by the current graph (OpenAI-only). Safe to omit.                 |
+
+> **Docker users:** `docker-compose.yml` overrides `DATABASE_URL` / `CHECKPOINT_DB_URL` to point at the `postgres` service, so whatever you put in `.env` for those two is ignored inside the app container.
+
+> **⚠️ IMPORTANT:** Never commit `.env`. `API_TOKEN` is injected automatically into every `api_call` — never hardcode it in knowledge chunks.
 
 ---
 
@@ -280,6 +313,14 @@ After adding or editing chunks, re-run ingestion (see next section).
 Ingestion reads `knowledge_chunks.txt`, generates embeddings, and stores them in pgvector.
 Run this **once initially**, then again whenever `knowledge_chunks.txt` changes.
 
+**Docker path** (Postgres runs in a container; this executes ingestion inside a one-off `app` container on the same network):
+
+```bash
+docker compose run --rm app uv run python ingest.py
+```
+
+**Native path:**
+
 ```bash
 uv run python ingest.py
 ```
@@ -318,17 +359,25 @@ QMR KNOWLEDGE (.TXT) TO VECTOR INGESTION
 
 ### Docker (Compose: app + PostgreSQL)
 
-The repo includes a `docker-compose.yml` that runs the Chainlit app and a [pgvector](https://github.com/pgvector/pgvector) PostgreSQL 16 image on a private network. Your OpenAI key, API base URL, and other secrets still come from a `.env` file (see section 8).
+The repo includes a `docker-compose.yml` that runs the Chainlit app and a [pgvector](https://github.com/pgvector/pgvector) PostgreSQL 16 image on a private Docker network.
 
-1. `cp .env.example .env` and set at least `OPENAI_API_KEY`, `BASE_URL`, and `API_TOKEN` as for local development. Compose injects `DATABASE_URL` / `CHECKPOINT_DB_URL` so the app reaches the `postgres` service (you do not need to put the Docker DB URL in `.env` for the app container; local `DATABASE_URL` in `.env` is only for running outside Docker).
+**Prerequisite:** [Docker Desktop](https://www.docker.com/get-started) (or Docker Engine + Compose plugin).
 
-2. Build and start:
+1. Copy the env template and fill in your real values (see **[§8](#8-environment-variables)**):
+
+   ```bash
+   cp .env.example .env
+   ```
+
+   At minimum set `OPENAI_API_KEY`, `BASE_URL`, and `API_TOKEN`. Compose automatically sets `DATABASE_URL` / `CHECKPOINT_DB_URL` for the app container to reach the `postgres` service, so those values in `.env` are only used for the **native** path.
+
+2. Build and start the stack:
 
    ```bash
    docker compose up --build
    ```
 
-3. After `knowledge_chunks.txt` is in place, run ingestion against the same database (port `5432` is published to the host as in the sample compose file):
+3. After `knowledge_chunks.txt` is in place, run ingestion (see **[§10](#10-run-ingestion)**):
 
    ```bash
    docker compose run --rm app uv run python ingest.py
@@ -336,7 +385,8 @@ The repo includes a `docker-compose.yml` that runs the Chainlit app and a [pgvec
 
 4. Open `http://localhost:8000` in your browser.
 
-The Postgres data directory is stored in a Docker volume (`postgres_data`). To reset the database, `docker compose down -v` and bring the stack up again, then re-run ingestion.
+**Stop the stack:** `docker compose down` (keeps the Postgres volume).
+**Full reset (drops DB data):** `docker compose down -v`, then `docker compose up --build` and re-run ingestion.
 
 ### Chainlit (recommended)
 
