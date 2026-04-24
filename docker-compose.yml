@@ -1,0 +1,41 @@
+# Karo: Chainlit app + PostgreSQL (pgvector). Usage: cp .env.example .env, fill secrets, then:
+#   docker compose up --build
+# Ingestion (after knowledge_chunks.txt exists):
+#   docker compose run --rm app uv run python ingest.py
+name: karo
+
+services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    environment:
+      POSTGRES_USER: karo
+      POSTGRES_PASSWORD: karo
+      POSTGRES_DB: qmrdb
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./docker/postgres/init.sql:/docker-entrypoint-initdb.d/01-init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U karo -d qmrdb"]
+      interval: 3s
+      timeout: 5s
+      retries: 10
+
+  app:
+    build: .
+    ports:
+      - "8000:8000"
+    environment:
+      # Service DNS name; overrides DATABASE_URL in .env for docker networking
+      DATABASE_URL: postgresql://karo:karo@postgres:5432/qmrdb
+      CHECKPOINT_DB_URL: postgresql://karo:karo@postgres:5432/qmrdb
+    env_file:
+      - path: .env
+        required: false
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+volumes:
+  postgres_data:
