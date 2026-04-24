@@ -316,6 +316,28 @@ QMR KNOWLEDGE (.TXT) TO VECTOR INGESTION
 
 ## **11. RUN THE APP**
 
+### Docker (Compose: app + PostgreSQL)
+
+The repo includes a `docker-compose.yml` that runs the Chainlit app and a [pgvector](https://github.com/pgvector/pgvector) PostgreSQL 16 image on a private network. Your OpenAI key, API base URL, and other secrets still come from a `.env` file (see section 8).
+
+1. `cp .env.example .env` and set at least `OPENAI_API_KEY`, `BASE_URL`, and `API_TOKEN` as for local development. Compose injects `DATABASE_URL` / `CHECKPOINT_DB_URL` so the app reaches the `postgres` service (you do not need to put the Docker DB URL in `.env` for the app container; local `DATABASE_URL` in `.env` is only for running outside Docker).
+
+2. Build and start:
+
+   ```bash
+   docker compose up --build
+   ```
+
+3. After `knowledge_chunks.txt` is in place, run ingestion against the same database (port `5432` is published to the host as in the sample compose file):
+
+   ```bash
+   docker compose run --rm app uv run python ingest.py
+   ```
+
+4. Open `http://localhost:8000` in your browser.
+
+The Postgres data directory is stored in a Docker volume (`postgres_data`). To reset the database, `docker compose down -v` and bring the stack up again, then re-run ingestion.
+
 ### Chainlit (recommended)
 
 ```bash
