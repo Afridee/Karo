@@ -27,9 +27,13 @@ services:
     ports:
       - "8000:8000"
     environment:
-      # Service DNS name; overrides DATABASE_URL in .env for docker networking
-      DATABASE_URL: postgresql://karo:karo@postgres:5432/qmrdb
-      CHECKPOINT_DB_URL: postgresql://karo:karo@postgres:5432/qmrdb
+      # If DATABASE_URL / CHECKPOINT_DB_URL are set in .env (or your shell), they win.
+      # Otherwise fall back to the in-cluster `postgres` service DNS name.
+      # NOTE: when overriding via .env for Docker, do NOT use `localhost` — inside
+      # the container localhost is the container itself. Use the host where the
+      # DB is reachable from the container (e.g. `postgres`, a managed DB host, etc.).
+      DATABASE_URL: ${DATABASE_URL:-postgresql://karo:karo@postgres:5432/qmrdb}
+      CHECKPOINT_DB_URL: ${CHECKPOINT_DB_URL:-${DATABASE_URL:-postgresql://karo:karo@postgres:5432/qmrdb}}
     env_file:
       - path: .env
         required: false

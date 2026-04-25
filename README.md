@@ -240,8 +240,19 @@ cp .env.example .env
 | ----------------- | ----------------------------------------------------------------------------------------- |
 | `OPENAI_API_KEY`  | LLM (`gpt-4o`) and embeddings (`text-embedding-3-small`).                                 |
 | `BASE_URL`        | Base URL of the external REST APIs the agent will call (injected into the system prompt). |
-| `API_TOKEN`       | Bearer token added automatically to every API call made by the agent.                     |
-| `DATABASE_URL`    | PostgreSQL + pgvector connection string. **Native path only** — with Docker, Compose sets this for you. |
+| `API_TOKEN`       | See **[What is API_TOKEN?](#what-is-api_token)** below.                                    |
+| `DATABASE_URL`    | PostgreSQL + pgvector connection string. With Docker, defaults to the in-cluster `postgres` service if you don't set it; you can override to point at a managed/external DB. |
+
+### What is API_TOKEN?
+
+Karo is built to call **your** backend REST APIs (the ones you document in `knowledge_chunks.txt` and the agent hits via the **`APIInput`** tool). If those endpoints expect a **Bearer** access token, set `API_TOKEN` in `.env` to the token string (without the `Bearer` prefix). At runtime, the agent’s HTTP tool sends:
+
+`Authorization: Bearer <value of API_TOKEN>`
+
+on each request, **unless** a different `Authorization` header is already in place (for example, when using `ask_agent(..., auth_tokens=...)` programmatically, which can supply per-request tokens instead).
+
+- **Not checked at startup** — the app boots even if `API_TOKEN` is empty; calls to protected APIs will then return **401/403** without a valid token.
+- **Do not** paste the real token in `knowledge_chunks.txt` — only reference that “auth is injected automatically,” as the README already says.
 
 ### Optional
 
@@ -253,7 +264,7 @@ cp .env.example .env
 | `LANGSMITH_TRACING`, `LANGSMITH_API_KEY`, `LANGSMITH_PROJECT`, `LANGSMITH_ENDPOINT` | LangSmith tracing. Leave unset to disable. |
 | `ANTHROPIC_API_KEY`  | Not used by the current graph (OpenAI-only). Safe to omit.                 |
 
-> **Docker users:** `docker-compose.yml` overrides `DATABASE_URL` / `CHECKPOINT_DB_URL` to point at the `postgres` service, so whatever you put in `.env` for those two is ignored inside the app container.
+> **Docker users:** if `.env` does **not** define `DATABASE_URL` / `CHECKPOINT_DB_URL`, `docker-compose.yml` falls back to the in-cluster `postgres` service. If `.env` *does* define them, those values are used — useful for pointing at a managed/external Postgres. Do **not** use `localhost` here: inside a container `localhost` is the container itself, not your Mac.
 
 > **⚠️ IMPORTANT:** Never commit `.env`. `API_TOKEN` is injected automatically into every `api_call` — never hardcode it in knowledge chunks.
 
@@ -369,7 +380,7 @@ The repo includes a `docker-compose.yml` that runs the Chainlit app and a [pgvec
    cp .env.example .env
    ```
 
-   At minimum set `OPENAI_API_KEY`, `BASE_URL`, and `API_TOKEN`. Compose automatically sets `DATABASE_URL` / `CHECKPOINT_DB_URL` for the app container to reach the `postgres` service, so those values in `.env` are only used for the **native** path.
+   At minimum set `OPENAI_API_KEY`, `BASE_URL`, and `API_TOKEN`. If you don't set `DATABASE_URL` / `CHECKPOINT_DB_URL`, Compose falls back to the in-cluster `postgres` service. To point Docker at a managed/external Postgres, set those URLs in `.env` (use a hostname reachable from the container — **not** `localhost`).
 
 2. Build and start the stack:
 
