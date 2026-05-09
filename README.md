@@ -41,7 +41,7 @@ Open http://localhost:8000. Full details (including reset/cleanup) are in **[§1
 8. [Environment Variables](#8-environment-variables)
 9. [Add API Knowledge](#9-add-api-knowledge)
 10. [Run Ingestion](#10-run-ingestion)
-11. [Run the App](#11-run-the-app) — **[Docker](#docker-compose-app--postgresql)** or **[Chainlit (native)](#chainlit-recommended)**
+11. [Run the App](#11-run-the-app) — **[Docker](#docker-compose-app--postgresql)**, **[Chainlit (native)](#chainlit-recommended)** (includes **[eval harness](#eval-harness-regression-checks)**)
 12. [Usage Examples](#12-usage-examples)
 13. [Troubleshooting](#13-troubleshooting)
 14. [Cleanup](#14-cleanup)
@@ -438,6 +438,24 @@ print(result["answer"])
 
 Each call is tied to a `thread_id` — LangGraph persists conversation history in PostgreSQL so the agent remembers context across turns.
 
+### Eval harness (regression checks)
+
+After you change prompts, tools, or `knowledge_chunks.txt` (and re-ingest), run the eval suite so retrieval and agent behaviour stay aligned with expectations.
+
+- **Cases:** `eval/cases.yaml` — retrieval queries (deterministic pgvector search) plus a few full agent turns (uses the LLM; costs tokens).
+- **Pytest** (recommended): install dev deps, then run everything except optional live-API tests:
+
+```bash
+uv sync --group dev
+uv run pytest tests/test_agent_eval.py -v -m "not integration"
+```
+
+- **CLI** (no pytest): `uv run python eval/run_eval.py` — add `--retrieval-only` to skip agent cases. To run the live API check: set `API_TOKEN`, export `KARO_EVAL_API=1`, and pass `--integration`.
+
+**Note:** Pytest uses a **session-scoped asyncio loop** (see `pyproject.toml`) so the LangGraph `AsyncPostgresSaver` connection matches the process-wide agent singleton across async tests.
+
+The **Docker Compose app image** is built with **`--no-dev`** (no pytest in the container). Run the eval suite from a native checkout with **`uv sync --group dev`** and a valid `.env` (same Postgres/API access as your app).
+
 ---
 
 ## **12. USAGE EXAMPLES**
@@ -501,7 +519,7 @@ psql qmrdb -c "CREATE EXTENSION IF NOT EXISTS vector;"
 Ensure `.env` exists in your working directory and contains all required keys. Double-check with:
 
 ```bash
-cat .env | grep -E "DATABASE_URL|API_TOKEN|OPENAI_API_KEY"
+cat .env | grep -E "DATABASE_URL|BASE_URL|API_TOKEN|OPENAI_API_KEY"
 ```
 
 ### `No module named 'langchain'` (or any other package)
@@ -544,7 +562,21 @@ Verify `API_TOKEN` is set correctly in `.env`. The token is injected as a `Beare
 
 ## **14. CLEANUP**
 
-### Stop services
+### Docker Compose stack
+
+Stop containers but keep Postgres data:
+
+```bash
+docker compose down
+```
+
+Drop the Postgres volume as well (*full DB reset — same as **[§11 → Docker](#docker-compose-app--postgresql)***):
+
+```bash
+docker compose down -v
+```
+
+### Stop services *(native Postgres)*
 
 ```bash
 brew services stop postgresql@15
